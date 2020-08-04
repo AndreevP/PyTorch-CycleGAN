@@ -1,53 +1,105 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-class ResidualBlock(nn.Module):
-    def __init__(self, in_features):
-        super(ResidualBlock, self).__init__()
+class Log(nn.Module):
+    def __init__(self):
+        super(Log, self).__init__()
+             
+    def forward(self, x):
+        print(x.shape)
+        return x
+    
+    
+class ConvNormReLU(nn.Sequential):
+    def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, use_bn=False):
+        if use_bn:
+            norm = nn.BatchNorm2d
+        else:
+            norm = nn.InstanceNorm2d
+            
+        super(ConvNormReLU, self).__init__(
+            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding),
+            norm(out_planes),
+            # Replace with ReLU
+            nn.ReLU(inplace=True)
+        )
+        
+class ConvNorm(nn.Sequential):
+    def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, use_bn=False):
+        if use_bn:
+            norm = nn.BatchNorm2d
+        else:
+            norm = nn.InstanceNorm2d
+            
+        super(ConvNorm, self).__init__(
+            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding),
+            norm(out_planes)
+        )
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_features, use_bn):
+        super(ResidualBlock, self).__init__()
+        
+        if use_bn:
+            norm = nn.BatchNorm2d
+        else:
+            norm = nn.InstanceNorm2d
+            
         conv_block = [  nn.ReflectionPad2d(1),
-                        nn.Conv2d(in_features, in_features, 3),
-                        nn.InstanceNorm2d(in_features),
-                        nn.ReLU(inplace=True),
+                       # nn.Conv2d(in_features, in_features, 3),
+                       # norm(in_features),
+                       # nn.ReLU(inplace=True),
+                        ConvNormReLU(in_features, in_features, 3, use_bn=use_bn),
                         nn.ReflectionPad2d(1),
-                        nn.Conv2d(in_features, in_features, 3),
-                        nn.InstanceNorm2d(in_features)  ]
+                       # nn.Conv2d(in_features, in_features, 3),
+                       # norm(in_features) 
+                        ConvNorm(in_features, in_features, 3, use_bn=use_bn)]
 
         self.conv_block = nn.Sequential(*conv_block)
+        self.addition = nn.quantized.FloatFunctional()
 
     def forward(self, x):
-        return x + self.conv_block(x)
+        return self.addition.add(x, self.conv_block(x))
 
 class Generator(nn.Module):
-    def __init__(self, input_nc, output_nc, n_residual_blocks=9):
+    def __init__(self, input_nc, output_nc, n_residual_blocks=9, use_bn=False):
         super(Generator, self).__init__()
-
+        if use_bn:
+            norm = nn.BatchNorm2d
+        else:
+            norm = nn.InstanceNorm2d
         # Initial convolution block       
         model = [   nn.ReflectionPad2d(3),
-                    nn.Conv2d(input_nc, 64, 7),
-                    nn.InstanceNorm2d(64),
-                    nn.ReLU(inplace=True) ]
+                    ConvNormReLU(input_nc, 64, 7, use_bn=use_bn) ]
+                   # nn.Conv2d(input_nc, 64, 7),
+                   # norm(64),
+                   # nn.ReLU(inplace=True) ]
 
         # Downsampling
         in_features = 64
         out_features = in_features*2
         for _ in range(2):
-            model += [  nn.Conv2d(in_features, out_features, 3, stride=2, padding=1),
-                        nn.InstanceNorm2d(out_features),
-                        nn.ReLU(inplace=True) ]
+            model += [  ConvNormReLU(in_features, out_features, 3, stride=2, padding=1, use_bn=use_bn)]
+                        #nn.Conv2d(in_features, out_features, 3, stride=2, padding=1),
+                        #norm(out_features),
+                        #nn.ReLU(inplace=True) ]
             in_features = out_features
             out_features = in_features*2
 
         # Residual blocks
         for _ in range(n_residual_blocks):
-            model += [ResidualBlock(in_features)]
+            model += [ResidualBlock(in_features, use_bn)]
 
         # Upsampling
         out_features = in_features//2
         for _ in range(2):
-            model += [  nn.ConvTranspose2d(in_features, out_features, 3, stride=2, padding=1, output_padding=1),
-                        nn.InstanceNorm2d(out_features),
-                        nn.ReLU(inplace=True) ]
+            model += [ 
+                        nn.Upsample(scale_factor=2),
+                      #  nn.Conv2d(in_features, out_features, 3, stride=1, padding=1),
+                     # #  nn.ConvTranspose2d(in_features, out_features, 3, stride=2, padding=1, output_padding=1),
+                      #  norm(out_features),
+                       # nn.ReLU(inplace=True)
+                       ConvNormReLU(in_features, out_features, 3, stride=1, padding=1, use_bn=use_bn)]
             in_features = out_features
             out_features = in_features//2
 
