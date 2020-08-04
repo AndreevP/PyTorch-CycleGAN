@@ -1,5 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
+from torch.quantization import QuantStub, DeQuantStub
 
 class Log(nn.Module):
     def __init__(self):
@@ -18,7 +20,7 @@ class ConvNormReLU(nn.Sequential):
             norm = nn.InstanceNorm2d
             
         super(ConvNormReLU, self).__init__(
-            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding),
+            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, bias=False),
             norm(out_planes),
             # Replace with ReLU
             nn.ReLU(inplace=True)
@@ -32,7 +34,7 @@ class ConvNorm(nn.Sequential):
             norm = nn.InstanceNorm2d
             
         super(ConvNorm, self).__init__(
-            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding),
+            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, bias=False),
             norm(out_planes)
         )
 
@@ -45,21 +47,22 @@ class ResidualBlock(nn.Module):
         else:
             norm = nn.InstanceNorm2d
             
-        conv_block = [  nn.ReflectionPad2d(1),
+        conv_block = [#  nn.ReflectionPad2d(1),
                        # nn.Conv2d(in_features, in_features, 3),
                        # norm(in_features),
                        # nn.ReLU(inplace=True),
-                        ConvNormReLU(in_features, in_features, 3, use_bn=use_bn),
-                        nn.ReflectionPad2d(1),
+                        ConvNormReLU(in_features, in_features, 3,  padding=1, use_bn=use_bn),
+                       # nn.ReflectionPad2d(1),
                        # nn.Conv2d(in_features, in_features, 3),
                        # norm(in_features) 
-                        ConvNorm(in_features, in_features, 3, use_bn=use_bn)]
+                        ConvNorm(in_features, in_features, 3, padding=1, use_bn=use_bn)]
 
         self.conv_block = nn.Sequential(*conv_block)
         self.addition = nn.quantized.FloatFunctional()
 
     def forward(self, x):
         return self.addition.add(x, self.conv_block(x))
+    
 
 class Generator(nn.Module):
     def __init__(self, input_nc, output_nc, n_residual_blocks=9, use_bn=False):
@@ -68,9 +71,12 @@ class Generator(nn.Module):
             norm = nn.BatchNorm2d
         else:
             norm = nn.InstanceNorm2d
+            
+        self.quant = QuantStub()
+        self.dequant = DeQuantStub()
         # Initial convolution block       
-        model = [   nn.ReflectionPad2d(3),
-                    ConvNormReLU(input_nc, 64, 7, use_bn=use_bn) ]
+        model = [  # nn.ReflectionPad2d(3),
+                    ConvNormReLU(input_nc, 64, 7, padding=3, use_bn=use_bn) ]
                    # nn.Conv2d(input_nc, 64, 7),
                    # norm(64),
                    # nn.ReLU(inplace=True) ]
@@ -104,14 +110,24 @@ class Generator(nn.Module):
             out_features = in_features//2
 
         # Output layer
-        model += [  nn.ReflectionPad2d(3),
-                    nn.Conv2d(64, output_nc, 7),
+        model += [ # nn.ReflectionPad2d(3),
+                    nn.Conv2d(64, output_nc, 7, padding=3),
                     nn.Tanh() ]
 
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
-        return self.model(x)
+        x = self.quant(x)
+        x = self.model(x)
+        return self.dequant(x)
+    
+    def fuse(self):
+        for m in self.model.modules():
+            if type(m) == ConvNormReLU:
+                torch.quantization.fuse_modules(m, ['0', '1', '2'], inplace=True)
+            if type(m) == ConvNorm:
+                torch.quantization.fuse_modules(m, ['0', '1'], inplace=True)
+            
 
 class Discriminator(nn.Module):
     def __init__(self, input_nc):
