@@ -34,6 +34,9 @@ parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads 
 opt = parser.parse_args()
 print(opt)
 
+if not os.path.exists(opt.output_dir):
+    os.mkdir(opt.output_dir)
+
 if torch.cuda.is_available() and not opt.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
