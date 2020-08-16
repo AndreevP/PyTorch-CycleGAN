@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', type=int, default=0, help='starting epoch')
 parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
 parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-parser.add_argument('--use_bn', type=bool, default=True, help='Use of Batchnorm / Instancenorm')
+parser.add_argument('--use_bn', action='store_true', help='Use of Batchnorm / Instancenorm')
 parser.add_argument('--dataroot', type=str, default='datasets/horse2zebra/', help='root directory of the dataset')
 parser.add_argument('--output_dir', type=str, default='output', help='where to save the results')
 parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
@@ -34,11 +34,17 @@ parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads 
 opt = parser.parse_args()
 print(opt)
 
+import os
+if not os.path.exists(opt.output_dir):
+    os.mkdir(opt.output_dir)
+
 if torch.cuda.is_available() and not opt.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
 ###### Definition of variables ######
 # Networks
+print(opt.use_bn)
+1/0
 netG_A2B = Generator(opt.input_nc, opt.output_nc, use_bn=opt.use_bn)
 netG_B2A = Generator(opt.output_nc, opt.input_nc, use_bn=opt.use_bn)
 netD_A = Discriminator(opt.input_nc)

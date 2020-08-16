@@ -49,22 +49,22 @@ class Logger():
         batches_left = self.batches_epoch*(self.n_epochs - self.epoch) + self.batches_epoch - self.batch 
         sys.stdout.write('ETA: %s' % (datetime.timedelta(seconds=batches_left*self.mean_period/batches_done)))
 
-        # Draw images
-        for image_name, tensor in images.items():
-            if image_name not in self.image_windows:
-                self.image_windows[image_name] = self.viz.image(tensor2image(tensor.data), opts={'title':image_name})
-            else:
-                self.viz.image(tensor2image(tensor.data), win=self.image_windows[image_name], opts={'title':image_name})
+        # # Draw images
+        # for image_name, tensor in images.items():
+        #     if image_name not in self.image_windows:
+        #         self.image_windows[image_name] = self.viz.image(tensor2image(tensor.data), opts={'title':image_name})
+        #     else:
+        #         self.viz.image(tensor2image(tensor.data), win=self.image_windows[image_name], opts={'title':image_name})
 
         # End of epoch
         if (self.batch % self.batches_epoch) == 0:
             # Plot losses
             for loss_name, loss in self.losses.items():
-                if loss_name not in self.loss_windows:
-                    self.loss_windows[loss_name] = self.viz.line(X=np.array([self.epoch]), Y=np.array([loss/self.batch]), 
-                                                                    opts={'xlabel': 'epochs', 'ylabel': loss_name, 'title': loss_name})
-                else:
-                    self.viz.line(X=np.array([self.epoch]), Y=np.array([loss/self.batch]), win=self.loss_windows[loss_name], update='append')
+                # if loss_name not in self.loss_windows:
+                #     self.loss_windows[loss_name] = self.viz.line(X=np.array([self.epoch]), Y=np.array([loss/self.batch]),
+                #                                                     opts={'xlabel': 'epochs', 'ylabel': loss_name, 'title': loss_name})
+                # else:
+                #     self.viz.line(X=np.array([self.epoch]), Y=np.array([loss/self.batch]), win=self.loss_windows[loss_name], update='append')
                 # Reset losses for next epoch
                 self.losses[loss_name] = 0.0
 
@@ -109,17 +109,11 @@ class LambdaLR():
         return 1.0 - max(0, epoch + self.offset - self.decay_start_epoch)/(self.n_epochs - self.decay_start_epoch)
 
 def weights_init_normal(m):
-    pass
-    #classname = m.__class__.__name__
+    classname = m.__class__.__name__
     
-    #if classname.find('Conv2d') != -1:
-    #    torch.nn.init.normal(m.weight.data, 0.0, 0.02)
-    #else:
-    #    pass
-#    elif classname.find('BatchNorm2d') != -1:
-#        torch.nn.init.normal(m.weight.data, 1.0, 0.02)
-#        torch.nn.init.constant(m.bias.data, 0.0)
-#    elif classname.find('InstanceNorm2d') != -1:
-#        torch.nn.init.normal(m.weight.data, 1.0, 0.02)
-#        torch.nn.init.constant(m.bias.data, 0.0)
+    if classname.find('Conv2d') != -1:
+       torch.nn.init.normal(m.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm2d') != -1:
+       torch.nn.init.normal(m.weight.data, 1.0, 0.02)
+       torch.nn.init.constant(m.bias.data, 0.0)
 
