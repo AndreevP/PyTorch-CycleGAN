@@ -16,7 +16,7 @@ def tensor2image(tensor):
 
 class Logger():
     def __init__(self, n_epochs, batches_epoch):
-        self.viz = Visdom()
+#        self.viz = Visdom()
         self.n_epochs = n_epochs
         self.batches_epoch = batches_epoch
         self.epoch = 1

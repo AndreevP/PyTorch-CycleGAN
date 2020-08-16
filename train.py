@@ -43,8 +43,6 @@ if torch.cuda.is_available() and not opt.cuda:
 
 ###### Definition of variables ######
 # Networks
-print(opt.use_bn)
-1/0
 netG_A2B = Generator(opt.input_nc, opt.output_nc, use_bn=opt.use_bn)
 netG_B2A = Generator(opt.output_nc, opt.input_nc, use_bn=opt.use_bn)
 netD_A = Discriminator(opt.input_nc)
