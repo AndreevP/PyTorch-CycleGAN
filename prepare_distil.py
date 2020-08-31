@@ -21,8 +21,8 @@ parser.add_argument('--output_nc', type=int, default=3, help='number of channels
 parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
 parser.add_argument('--cuda', action='store_true', help='use GPU computation')
 parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-parser.add_argument('--generator_A2B', type=str, default='output/netG_A2B.pth', help='A2B generator checkpoint file')
-parser.add_argument('--generator_B2A', type=str, default='output/netG_B2A.pth', help='B2A generator checkpoint file')
+parser.add_argument('--generator_A2B', type=str, default='cyclegan_in/netG_A2B.pth', help='A2B generator checkpoint file')
+parser.add_argument('--generator_B2A', type=str, default='cyclegan_in/netG_B2A.pth', help='B2A generator checkpoint file')
 opt = parser.parse_args()
 print(opt)
 
@@ -43,8 +43,8 @@ netG_A2B.load_state_dict(torch.load(opt.generator_A2B))
 netG_B2A.load_state_dict(torch.load(opt.generator_B2A))
 
 # Set model's test mode
-netG_A2B.eval()
-netG_B2A.eval()
+# netG_A2B.eval()
+# netG_B2A.eval()
 
 # Inputs & targets memory allocation
 Tensor = torch.cuda.FloatTensor if opt.cuda else torch.Tensor
@@ -54,7 +54,9 @@ input_B = Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size)
 # Dataset loader
 transforms_ = [ transforms.ToTensor(),
                 transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5)) ]
-dataloader = DataLoader(ImageDataset(opt.dataroot, transforms_=transforms_, mode='train'), 
+
+images_ds = ImageDataset(opt.dataroot, transforms_=transforms_, mode='train')
+dataloader = DataLoader(images_ds,
                         batch_size=opt.batchSize, shuffle=False, num_workers=opt.n_cpu)
 ###################################
 
@@ -86,14 +88,22 @@ for i, batch in enumerate(dataloader):
     real_B = 0.5*(real_B + 1.0)
     real_A = 0.5*(real_A + 1.0)
 
+    # print(fake_B)
+    # 1/0
 
     # Save image files
-    save_image(fake_A, 'datasets/horse2zebra/distilB2A/A/%04d.png' % (i+1))
-    save_image(fake_B, 'datasets/horse2zebra/distilA2B/B/%04d.png' % (i+1))
-    save_image(real_A, 'datasets/horse2zebra/distilA2B/A/%04d.png' % (i+1))
-    save_image(real_B, 'datasets/horse2zebra/distilB2A/B/%04d.png' % (i+1))
+
+    if i < len(images_ds.files_A):
+        #save_image(real_A, f'datasets/horse2zebra/distilA2B/A/{images_ds.files_A[i].split("/")[-1]}.png')
+        save_image(fake_B, f'datasets/horse2zebra/distilA2B/B/{images_ds.files_A[i].split("/")[-1][:-4]}.png')
+
+    if i < len(images_ds.files_B):
+        #(fake_A, f'datasets/horse2zebra/distilB2A/A/{images_ds.files_B[i].split("/")[-1]}.png')
+        save_image(fake_A, f'datasets/horse2zebra/distilB2A/A/{images_ds.files_B[i].split("/")[-1][:-4]}.png')
 
     sys.stdout.write('\rGenerated images %04d of %04d' % (i+1, len(dataloader)))
+
+
 
 sys.stdout.write('\n')
 ###################################
